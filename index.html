@@ -3,16 +3,475 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bubble-blast-battle-zone</title>
+    <title>Bubble-shooter-game</title>
     <meta name="description" content="Bubble Game project" />
-    <meta name="author" content="Shashi"/>
-
+    <meta name="author" content="Shashi" />
     <meta property="og:title" content="Bubble-blast-battle-zone" />
     <meta property="og:type" content="website" />
+    <style>
+      :root {
+        --background: #fff;
+        --foreground: #0d1117;
+        --card: #fff;
+        --card-foreground: #0d1117;
+        --popover: #fff;
+        --popover-foreground: #0d1117;
+        --primary: #1a202c;
+        --primary-foreground: #f0f6fc;
+        --secondary: #f1f5f9;
+        --secondary-foreground: #1a202c;
+        --muted: #f1f5f9;
+        --muted-foreground: #64748b;
+        --accent: #f1f5f9;
+        --accent-foreground: #1a202c;
+        --destructive: #e74c3c;
+        --destructive-foreground: #f0f6fc;
+        --border: #e5e7eb;
+        --input: #e5e7eb;
+        --ring: #0d1117;
+        --radius: 8px;
+        --sidebar-background: #fafafa;
+        --sidebar-foreground: #3d4451;
+        --sidebar-primary: #18181b;
+        --sidebar-primary-foreground: #fafafa;
+        --sidebar-accent: #f5f6fa;
+        --sidebar-accent-foreground: #18181b;
+        --sidebar-border: #e0e6ed;
+        --sidebar-ring: #3b82f6;
+      }
+      .dark {
+        --background: #0d1117;
+        --foreground: #f0f6fc;
+        --card: #0d1117;
+        --card-foreground: #f0f6fc;
+        --popover: #0d1117;
+        --popover-foreground: #f0f6fc;
+        --primary: #f0f6fc;
+        --primary-foreground: #1a202c;
+        --secondary: #23272f;
+        --secondary-foreground: #f0f6fc;
+        --muted: #23272f;
+        --muted-foreground: #a0aec0;
+        --accent: #23272f;
+        --accent-foreground: #f0f6fc;
+        --destructive: #992d22;
+        --destructive-foreground: #f0f6fc;
+        --border: #23272f;
+        --input: #23272f;
+        --ring: #cbd5e1;
+        --sidebar-background: #18181b;
+        --sidebar-foreground: #f5f6fa;
+        --sidebar-primary: #2563eb;
+        --sidebar-primary-foreground: #fff;
+        --sidebar-accent: #23272f;
+        --sidebar-accent-foreground: #f5f6fa;
+        --sidebar-border: #23272f;
+        --sidebar-ring: #3b82f6;
+      }
+      * {
+        box-sizing: border-box;
+        border-color: var(--border);
+      }
+      body {
+        background: var(--background);
+        color: var(--foreground);
+        margin: 0;
+        font-family: system-ui, sans-serif;
+      }
+    </style>
   </head>
-
   <body>
     <div id="root"></div>
-    <script type="module" src="src/main.tsx"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const container = document.getElementById("root");
+
+        // Create wrapper div
+        const wrapper = document.createElement("div");
+        wrapper.style.width = "100vw";
+        wrapper.style.height = "100vh";
+        wrapper.style.overflow = "hidden";
+        wrapper.style.background =
+          "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)";
+        wrapper.style.position = "relative";
+
+        // Create canvas
+        const canvas = document.createElement("canvas");
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.style.cursor = "crosshair";
+        canvas.style.display = "block";
+        canvas.setAttribute("tabindex", "0");
+        wrapper.appendChild(canvas);
+
+        container.innerHTML = "";
+        container.appendChild(wrapper);
+
+        // --- Game Logic ---
+        const ctx = canvas.getContext("2d");
+
+        // Set canvas size
+        function resizeCanvas() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+
+        // Game variables
+        let bubbles = [];
+        let arrows = [];
+        let particles = [];
+        let score = 0;
+        let gameTime = 0;
+        let mouseX = canvas.width - 50;
+        let mouseY = canvas.height / 2;
+
+        // Bubble class
+        function Bubble() {
+          this.x = Math.random() * (canvas.width * 0.4) + 50;
+          this.y = Math.random() * canvas.height;
+          this.radius = 20 + Math.random() * 20;
+          this.color = getRandomColor();
+          this.speedY = 1 + Math.random() * 2;
+          this.direction = Math.random() > 0.5 ? 1 : -1;
+        }
+        function getRandomColor() {
+          const colors = [
+            "#FF6B6B",
+            "#4ECDC4",
+            "#45B7D1",
+            "#96CEB4",
+            "#FFEAA7",
+            "#DDA0DD",
+            "#98D8C8",
+            "#F7DC6F",
+            "#BB8FCE",
+            "#85C1E9",
+          ];
+          return colors[Math.floor(Math.random() * colors.length)];
+        }
+        Bubble.prototype.darkenColor = function (color) {
+          const hex = color.replace("#", "");
+          const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - 40);
+          const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - 40);
+          const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - 40);
+          return `rgb(${r}, ${g}, ${b})`;
+        };
+        Bubble.prototype.update = function () {
+          this.y += this.speedY * this.direction;
+          if (this.y <= this.radius || this.y >= canvas.height - this.radius) {
+            this.direction *= -1;
+          }
+          this.x += Math.sin(gameTime * 0.01 + this.y * 0.005) * 0.5;
+        };
+        Bubble.prototype.draw = function () {
+          const gradient = ctx.createRadialGradient(
+            this.x - this.radius * 0.3,
+            this.y - this.radius * 0.3,
+            0,
+            this.x,
+            this.y,
+            this.radius
+          );
+          gradient.addColorStop(0, this.color);
+          gradient.addColorStop(1, this.darkenColor(this.color));
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "rgba(255,255,255,0.3)";
+          ctx.beginPath();
+          ctx.arc(
+            this.x - this.radius * 0.3,
+            this.y - this.radius * 0.3,
+            this.radius * 0.3,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        };
+
+        // Arrow class
+        function Arrow(startX, startY, targetX, targetY) {
+          this.x = startX;
+          this.y = startY;
+          const dx = targetX - startX;
+          const dy = targetY - startY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const speed = 8;
+          this.speedX = (dx / distance) * speed;
+          this.speedY = (dy / distance) * speed;
+          this.angle = Math.atan2(dy, dx);
+        }
+        Arrow.prototype.update = function () {
+          this.x += this.speedX;
+          this.y += this.speedY;
+        };
+        Arrow.prototype.draw = function () {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.angle);
+          ctx.fillStyle = "#FFD700";
+          ctx.strokeStyle = "#FF8C00";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-15, 0);
+          ctx.lineTo(15, 0);
+          ctx.lineTo(10, -5);
+          ctx.moveTo(15, 0);
+          ctx.lineTo(10, 5);
+          ctx.stroke();
+          ctx.restore();
+        };
+
+        // Particle class
+        function Particle(x, y, color) {
+          this.x = x;
+          this.y = y;
+          this.speedX = (Math.random() - 0.5) * 10;
+          this.speedY = (Math.random() - 0.5) * 10;
+          this.life = 30;
+          this.maxLife = 30;
+          this.color = color;
+        }
+        Particle.prototype.update = function () {
+          this.x += this.speedX;
+          this.y += this.speedY;
+          this.speedY += 0.1;
+          this.life--;
+        };
+        Particle.prototype.draw = function () {
+          const alpha = this.life / this.maxLife;
+          ctx.fillStyle = this.color
+            .replace("rgb", "rgba")
+            .replace(")", `, ${alpha})`);
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        };
+
+        // Create initial bubbles
+        function createBubbles() {
+          for (let i = 0; i < 8; i++) {
+            bubbles.push(new Bubble());
+          }
+        }
+
+        // Collision detection
+        function checkCollisions() {
+          for (let i = arrows.length - 1; i >= 0; i--) {
+            const arrow = arrows[i];
+            for (let j = bubbles.length - 1; j >= 0; j--) {
+              const bubble = bubbles[j];
+              const dx = arrow.x - bubble.x;
+              const dy = arrow.y - bubble.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance < bubble.radius) {
+                for (let k = 0; k < 10; k++) {
+                  particles.push(
+                    new Particle(bubble.x, bubble.y, bubble.color)
+                  );
+                }
+                bubbles.splice(j, 1);
+                arrows.splice(i, 1);
+                score += 10;
+                break;
+              }
+            }
+            if (
+              arrow.x < 0 ||
+              arrow.x > canvas.width ||
+              arrow.y < 0 ||
+              arrow.y > canvas.height
+            ) {
+              arrows.splice(i, 1);
+            }
+          }
+        }
+
+        // Shooting
+        function shoot(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect();
+          const targetX = clientX - rect.left;
+          const targetY = clientY - rect.top;
+          const startX = canvas.width - 50;
+          const startY = canvas.height / 2;
+          arrows.push(new Arrow(startX, startY, targetX, targetY));
+        }
+
+        // Mouse movement
+        function updateMousePosition(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect();
+          mouseX = clientX - rect.left;
+          mouseY = clientY - rect.top;
+        }
+
+        // Event listeners
+        canvas.addEventListener("click", (e) => {
+          shoot(e.clientX, e.clientY);
+        });
+        canvas.addEventListener("mousemove", (e) => {
+          updateMousePosition(e.clientX, e.clientY);
+        });
+        canvas.addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          shoot(touch.clientX, touch.clientY);
+          updateMousePosition(touch.clientX, touch.clientY);
+        });
+        canvas.addEventListener("touchmove", (e) => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          updateMousePosition(touch.clientX, touch.clientY);
+        });
+
+        // Game loop
+        function gameLoop() {
+          gameTime++;
+          // Gradient background
+          const gradient = ctx.createLinearGradient(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          gradient.addColorStop(0, "#667eea");
+          gradient.addColorStop(1, "#764ba2");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Bubbles
+          bubbles.forEach((bubble) => {
+            bubble.update();
+            bubble.draw();
+          });
+
+          // Arrows
+          arrows.forEach((arrow) => {
+            arrow.update();
+            arrow.draw();
+          });
+
+          // Particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const particle = particles[i];
+            particle.update();
+            particle.draw();
+            if (particle.life <= 0) {
+              particles.splice(i, 1);
+            }
+          }
+
+          // Collisions
+          checkCollisions();
+
+          // Add new bubbles
+          if (Math.random() < 0.01 && bubbles.length < 12) {
+            bubbles.push(new Bubble());
+          }
+
+          // Draw aiming arrow
+          const shooterX = canvas.width - 50;
+          const shooterY = canvas.height / 2;
+          const dx = mouseX - shooterX;
+          const dy = mouseY - shooterY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > 10) {
+            ctx.save();
+            ctx.translate(shooterX, shooterY);
+            ctx.rotate(Math.atan2(dy, dx));
+            ctx.strokeStyle = "rgba(255,255,255,0.6)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.min(distance * 0.5, 150), 0);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.strokeStyle = "rgba(255,255,255,0.8)";
+            ctx.lineWidth = 1;
+            const arrowLength = Math.min(distance * 0.5, 150);
+            ctx.beginPath();
+            ctx.moveTo(arrowLength, 0);
+            ctx.lineTo(arrowLength - 10, -5);
+            ctx.lineTo(arrowLength - 10, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Draw a shooter bow
+          ctx.save();
+          ctx.translate(shooterX, shooterY);
+          ctx.rotate(Math.atan2(dy, dx));
+
+          // Bow parameters
+          const bowLength = 80;
+          const bowCurve = 40;
+
+          // Draw bow (single curved line)
+          ctx.beginPath();
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = "#8B5C2A"; // brown color
+          ctx.moveTo(-bowLength / 2, -bowCurve);
+          ctx.quadraticCurveTo(0, -bowCurve * 1.5, bowLength / 2, 0);
+          ctx.quadraticCurveTo(0, bowCurve * 1.5, -bowLength / 2, bowCurve);
+          ctx.closePath();
+          ctx.stroke();
+
+          // Draw string (straight line)
+          ctx.beginPath();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#fff";
+          ctx.moveTo(-bowLength / 2, -bowCurve);
+          ctx.lineTo(-bowLength / 2, bowCurve);
+          ctx.stroke();
+
+          // Draw arrow (simple line with head)
+          ctx.beginPath();
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "#FFD700";
+          ctx.moveTo(0, 0);
+          ctx.lineTo(bowLength / 2 + 30, 0);
+          ctx.stroke();
+
+          // Arrow head
+          ctx.beginPath();
+          ctx.fillStyle = "#555";
+          ctx.moveTo(bowLength / 2 + 30, 0);
+          ctx.lineTo(bowLength / 2 + 20, -6);
+          ctx.lineTo(bowLength / 2 + 20, 6);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.restore();
+
+          // Draw score
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 24px Arial";
+          ctx.textAlign = "left";
+          ctx.fillText(`Score: ${score}`, 20, 40);
+
+          // Draw instructions
+          ctx.fillStyle = "rgba(255,255,255,0.8)";
+          ctx.font = "16px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            "Tap/Click to shoot arrows at bubbles!",
+            canvas.width / 2,
+            canvas.height - 30
+          );
+
+          requestAnimationFrame(gameLoop);
+        }
+
+        // Start game
+        createBubbles();
+        gameLoop();
+      });
+    </script>
   </body>
 </html>
